@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=60"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icopa-cli"
+version = "0.0.1"
+authors = [
+  { name="Yongzhou Zhang", email="yongzhou.zhang.d@gmail.com" },
+]
+description = "ICoPa Command Line Tool"
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.10"
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+keywords = ['robotics', 'robotic perception']
+
+dependencies = [
+    'tabulate >= 0.9.0',
+    'requests >= 2.22.0',
+    'argcomplete >= 3.0.0',
+    'PyYAML >= 5.3.0',
+]
+
+[project.scripts]
+icopa = "icopa_cli.icopa_cli:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+  'icopa_cli',
+  'icopa_cli.command_group',
+]

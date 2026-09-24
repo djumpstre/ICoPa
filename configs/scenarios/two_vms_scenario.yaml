@@ -1,0 +1,133 @@
+kind: Scenario
+metadata:
+  name: cross-site-zenoh-vm
+  description: >
+    Two-VM cross-site experiment. Routing starts first (cloud then local),
+    then traffic apps (responder then sender) for latency measurement.
+
+spec:
+  nodes:
+    - name: cloud_vm_bw
+      kind: vm
+      profiling_role: responder
+      labels: { site: cloud }
+
+    - name: vm_home
+      kind: vm
+      profiling_role: sender
+      labels: { site: local }
+
+  graph:
+    # directed edges in the compute topology
+    edges:
+      - name: robot_to_cloud
+        from: vm_home
+        to: cloud_vm_bw
+        link: ["wan", "wifi"]
+        type: robot2cloud # edge2cloud or robot2edge
+
+  runtimeEnvRef: zenoh-unit8-vm
+
+  phaseTemplates:
+    - name: setup_stress_workload
+      mode: parallel
+      description: Start CPU+RAM stress workload on the cloud VM to simulate background load.
+      actions:
+        - type: run_runtime_preset
+          targetRef: vm:cloud_vm_bw
+          preset: stress/stress_cpu_ram
+          parameters:
+            cpu_cores: ${variant.cloud_cpu_cores}
+            mem_gb: ${variant.cloud_mem_gb}
+        - type: run_runtime_preset
+          targetRef: vm:vm_home
+          preset: stress/stress_cpu_ram
+          parameters:
+            cpu_cores: ${variant.home_cpu_cores}
+            mem_gb: ${variant.home_mem_gb}
+  
+    - name: setup_routing_to_cloud
+      mode: sequential
+      description: Start router pair in strict order for one selected edge.
+      actions:
+        - type: run_runtime_preset
+          targetRef: vm:${edge.to}
+          preset: routing/setup_zenoh_routing
+          parameters:
+            preset_container_id: zenoh_router:jazzy_v1
+            exec_cmd_type: vm_ce_router_exec_cmd
+        - type: wait
+          parameters:
+            seconds: 3
+        - type: run_runtime_preset
+          targetRef: vm:${edge.from}
+          preset: routing/setup_zenoh_routing/jazzy_v1
+          parameters:
+            preset_container_id: zenoh_router:jazzy_v1
+            exec_cmd_type: vm_local_router_exec_cmd
+            peer_node: ${edge.to}
+
+    - name: profiling
+      mode: sequential
+      description: Start responder first, then sender to generate measurement traffic for one selected edge.
+      actions:
+        - type: run_runtime_preset
+          preset: profiling/latency_responder
+          targetRef: vm:${edge.to}
+        - type: wait
+          parameters:
+            seconds: 3
+        - type: run_runtime_preset
+          preset: profiling/latency_sender
+          targetRef: vm:${edge.from}
+          parameters:
+            peer_node: ${edge.to}
+
+    - name: cleanup_profiling
+      mode: parallel
+      description: Stop responder and sender after profiling for one selected edge.
+      actions:
+        - type: run_runtime_preset
+          preset: profiling/latency_responder
+          targetRef: vm:${edge.to}
+          parameters:
+            cleanup_only: true
+        - type: run_runtime_preset
+          preset: profiling/latency_sender
+          targetRef: vm:${edge.from}
+          parameters:
+            cleanup_only: true
+
+    - name: cleanup_router
+      mode: sequential
+      description: Stop and remove zenoh router containers on both VMs for one selected edge.
+      actions:
+        - type: cleanup_zenoh_routers
+          targetRef: vm:${edge.to}
+        - type: wait
+          parameters:
+            seconds: 1
+        - type: cleanup_zenoh_routers
+          targetRef: vm:${edge.from}
+
+    - name: collect_metrics
+      mode: sequential
+      actions:
+        - type: collect_metrics
+          targetRef: vm:${edge.from}
+
+    - name: cleanup_stress_workload
+      mode: sequential
+      description: Stop stress workload container on cloud VM.
+      actions:
+        - type: run_runtime_preset
+          preset: stress/stress_cpu_ram
+          targetRef: vm:cloud_vm_bw
+          parameters:
+            cleanup_only: true
+        - type: run_runtime_preset
+          preset: stress/stress_cpu_ram
+          targetRef: vm:vm_home
+          parameters:
+            cleanup_only: true
+          

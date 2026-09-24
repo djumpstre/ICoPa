@@ -1,0 +1,11 @@
+- id: stress_cpu_ram
+  name: stress_container
+  description: Start CPU and RAM stress workload container.
+  aliases:
+    - stress_container
+  image: "" # Required: set your container image reference before use.
+  run_args: --network host --restart unless-stopped
+  parameters:
+    cpu_cores: 2
+    mem_gb: 1
+    duration_sec: 300

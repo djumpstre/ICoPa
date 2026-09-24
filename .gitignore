@@ -1,0 +1,73 @@
+### Python 
+*.log
+*.pot 
+*.pyc
+__pycache__/
+*.egg-info
+tmp/
+
+# db
+dev_db/
+*.sqlite3
+*.sqlite3-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.dump
+secret*
+
+static/
+
+# Local credentials, environments, and generated files
+/.private/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pub
+# Extensionless SSH keys and local credential stores
+.ssh/
+.aws/
+.azure/
+.kube/
+.docker/
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+id_ecdsa_sk
+id_ed25519_sk
+authorized_keys
+known_hosts
+.netrc
+.pypirc
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.config
+!*.config.example
+.DS_Store
+.venv/
+node_modules/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+output/playwright/
+.playwright-cli/
+
+# Local research assets and maintenance tools
+/plots/
+/scripts/
+
+# agent
+skills/
+.skills/
+.agents/
+.codex/
+.claude/
+[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]

@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  icopa-devcon:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        NODE_VERSION: "lts/*"
+    volumes:
+      - ..:/workspace:cached  
+
+    # Overrides default command so things don't shut down after the process ends.
+    command: sleep infinity
+    # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
+
+
+

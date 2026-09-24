@@ -1,0 +1,4 @@
+# Example AWS Inventory File for creating and managing AWS EC2 instances
+ 
+# VM size, region, etc. can be configured here
+

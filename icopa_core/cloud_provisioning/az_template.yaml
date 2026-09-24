@@ -1,0 +1,72 @@
+kind: VMProvisioning
+metadata:
+  group_name: azure_vm_provisioning_test_01
+  description: Provisioning configuration for Azure VM used in the two-VM Zenoh experiment.
+  cloud_provider: azure
+
+vms:
+  - name: icopa-ros2-vm
+    region: germanywestcentral
+    location: germanywestcentral
+    subscription_id: YOUR_AZURE_SUBSCRIPTION_ID
+    resource_group: icopa-rg
+    size: Standard_A1_v2
+    admin_username: icops
+    ssh_private_key_name_in_icopa: key_name_in_icopa
+    ssh_public_key_path: /home/vscode/.ssh/id_ed25519.pub
+    network:
+      use_existing_vnet: true
+      vnet_name: icopa-net
+      subnet_name: default
+      create_public_ip: true
+      enable_public_ssh: true
+      reuse_public_ip: true
+      reuse_nsg: true
+      nsg_name: icopa-ros2-vm-nsg
+      public_ip_name: icopa-ros2-vm-pip
+      nic_name: icopa-ros2-vm-nic
+      # address_prefix: 10.50.0.0/16
+      # subnet_prefix: 10.50.1.0/24
+    image:
+      publisher: canonical
+      offer: ubuntu-24_04-lts
+      sku: server-gen1
+      # version: latest
+    post_setup:
+      install_docker: true
+
+  - name: icopa-vm-az-2
+    region: germanywestcentral
+    location: germanywestcentral
+    subscription_id: YOUR_AZURE_SUBSCRIPTION_ID
+    resource_group: icopa-rg
+    size: Standard_A1_v2
+    admin_username: icops
+    ssh_private_key_name_in_icopa: key_name_in_icopa
+    ssh_public_key_path: /home/vscode/.ssh/id_ed25519.pub
+    network:
+      use_existing_vnet: true
+      vnet_name: icopa-net
+      subnet_name: default
+      create_public_ip: true
+      enable_public_ssh: true
+      reuse_public_ip: true
+      reuse_nsg: true
+      nsg_name: icopa-ros2-vm-nsg
+      public_ip_name: icopa-ros2-vm-pip
+      nic_name: icopa-ros2-vm-nic
+      # address_prefix: 10.50.0.0/16
+      # subnet_prefix: 10.50.1.0/24
+    image:
+      publisher: canonical
+      offer: ubuntu-24_04-lts
+      sku: server-gen1
+      # version: latest
+    post_setup:
+      install_docker: true
+
+
+    # container:
+    #   name: ros2-runtime
+    #   image: your-registry/your-ros2-image:latest
+    #   run_args: --network host --restart unless-stopped

@@ -1,0 +1,72 @@
+kind: ExperimentPlan
+metadata:
+  name: multi_cloud_germanycentral
+  description: >
+    Near upload limit for max. 60 Mbps
+  scenarioRef: home-to-cloud
+spec:
+  execution:
+    stopOnFailure: true
+    connectivityPrecheck: true
+
+  selections:
+    runtimeEnv: zenoh-unit8-vm
+
+  execEdge:
+    # - edgeRefs: [edge_to_az_spaincentral]
+    #   exploration:
+    #     cloud_cpu_cores: [2]
+    #     cloud_mem_gb: [1]
+    #     icopa_sender:payload_size: ['16KB', '32KB', '64KB']
+    #     icopa_sender:frequency_hz: [30, 60]
+    #     icopa_sender:json_duration_sec: [60]
+    #     icopa_responder:response_payload_size: ['16KB']
+    #   phases:
+    #     # - name: setup_routing
+    #     #   useTemplate: setup_routing
+    #     - name: profiling
+    #       useTemplate: profiling
+    #     - name: collect_metrics
+    #       useTemplate: collect_metrics
+    #     - name: cleanup_profiling
+    #       useTemplate: cleanup_profiling
+    #     # - name: cleanup_router
+    #     #   useTemplate: cleanup_router
+
+    - edgeRefs: [edge_to_az_germanycentral] # edge_to_az_north_eu, edge_to_az_germanycentral
+      exploration:
+        cloud_cpu_cores: [2]
+        cloud_mem_gb: [1]
+        icopa_sender:payload_size: ['64KB', '80KB', '96KB', '128KB']
+        icopa_sender:frequency_hz: [60]
+        icopa_sender:json_duration_sec: [60]
+        icopa_responder:response_payload_size: ['16KB']
+      phases:
+        # - name: setup_routing
+        #   useTemplate: setup_routing
+        - name: profiling
+          useTemplate: profiling
+        - name: collect_metrics
+          useTemplate: collect_metrics
+        - name: cleanup_profiling
+          useTemplate: cleanup_profiling
+        # - name: cleanup_router
+        #   useTemplate: cleanup_router
+
+
+    # - edgeRefs: [robot_to_cloud]
+    #   phases:
+    #     - name: setup_stress_workload
+    #       useTemplate: setup_stress_workload
+    #     - name: setup_routing
+    #       useTemplate: setup_routing
+    #     - name: profiling
+    #       useTemplate: profiling
+    #     - name: collect_metrics
+    #       useTemplate: collect_metrics
+    #     - name: cleanup_profiling
+    #       useTemplate: cleanup_profiling
+    #     - name: cleanup_router
+    #       useTemplate: cleanup_router
+    #     - name: cleanup_stress_workload
+    #       useTemplate: cleanup_stress_workload

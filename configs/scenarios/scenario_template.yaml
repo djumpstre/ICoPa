@@ -1,0 +1,135 @@
+kind: Scenario
+metadata:
+  description: >
+    Evaluate latency/throughput under controlled payload + background CPU load.
+spec:
+  # link scenario nodes to inventory targets
+  nodes:
+    - name: robot
+      kind: vm
+      ref: edge-vm-01
+      labels: { role: robot, site: lab }
+      clock:
+        sync: chrony
+
+    - name: edge
+      kind: k8s
+      ref: edge-k8s
+      labels: { role: edge, site: lab }
+      placement:
+        namespace: netanalyzer
+        nodeSelector: { "kubernetes.io/hostname": "edge-node-1" }
+
+    - name: cloud
+      kind: vm
+      ref: cloud-vm-01
+      labels: { role: cloud, region: eu }
+
+  graph:
+    # directed edges in the compute topology
+    edges:
+      - from: robot
+        to: edge
+        link: wifi
+      - from: edge
+        to: cloud
+        link: internet
+
+  backgroundWorkloads:
+    # run stress in parallel (can be enabled/disabled per phase)
+    - name: cpu-stress-robot
+      target: robot
+      type: cpu
+      enabled: true
+      params:
+        workers: 4
+        loadPercent: 70
+        durationSec: 300
+      startAt:
+        phase: measure
+        offsetSec: 10
+
+    - name: cpu-stress-cloud
+      target: cloud
+      type: cpu
+      enabled: false
+      params:
+        workers: 8
+        loadPercent: 80
+        durationSec: 300
+
+  payloads:
+    # payload definitions are reusable across flows
+    - name: rgbd-small
+      type: bytes
+      sizeBytes: 262144     # 256 KiB
+      pattern: random
+    - name: pointcloud-mid
+      type: bytes
+      sizeBytes: 1048576    # 1 MiB
+      pattern: random
+    - name: ros2-tf
+      type: ros2
+      topic: "/tf"
+      msgType: "tf2_msgs/msg/TFMessage"
+      rateHz: 50
+
+  traffic:
+    # “flows” describe what to run between endpoints
+    - name: robot-to-edge-ping
+      kind: icmp_rtt
+      from: robot
+      to: edge
+      params:
+        count: 200
+        intervalMs: 50
+
+    - name: robot-to-edge-udp-lat
+      kind: udp_latency
+      from: robot
+      to: edge
+      params:
+        payloadRef: rgbd-small
+        pps: 200
+        durationSec: 60
+        targetLossRate: 0.0
+        metrics:
+          percentiles: [50, 90, 95, 99, 99.9]
+
+    - name: edge-to-cloud-tcp-throughput
+      kind: tcp_throughput
+      from: edge
+      to: cloud
+      params:
+        parallelStreams: 4
+        durationSec: 60
+        windowBytes: 4194304
+
+    - name: ros2-end2end
+      kind: ros2_pubsub_latency
+      from: robot
+      to: cloud
+      params:
+        payloadRef: ros2-tf
+        rmw: cyclonedds
+        transportHints:
+          zenohBridge: true
+        metrics:
+          percentiles: [50, 90, 99]
+          recordHistogram: true
+
+  phases:
+    # orchestration: run preset commands + measurements in sequence
+    - name: preflight
+      presets: ["preflight"]
+    - name: setup
+      presets: ["setup", "post_setup"]
+    - name: measure
+      durationSec: 360
+      runTraffic:
+        - robot-to-edge-ping
+        - robot-to-edge-udp-lat
+        - edge-to-cloud-tcp-throughput
+        - ros2-end2end
+    - name: cleanup
+      presets: ["cleanup"]

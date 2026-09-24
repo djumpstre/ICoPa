@@ -1,0 +1,44 @@
+version: 1
+actions:
+  - type: wait
+    scope: vm
+    description: Pause execution for a fixed number of seconds.
+    target_mode: none
+    required_parameters:
+      - seconds
+
+  - type: check_connectivity
+    scope: vm
+    description: Validate SSH/container runtime connectivity for one VM target.
+    target_mode: single
+    required_parameters: []
+
+  - type: check_graph_ping
+    scope: vm
+    description: Run graph ping checks from one source VM target.
+    target_mode: single
+    required_parameters: []
+
+  - type: run_runtime_preset
+    scope: vm
+    description: Execute a runtime command preset on one VM target.
+    target_mode: single
+    required_parameters: []
+
+  - type: cleanup_zenoh_routers
+    scope: vm
+    description: Stop and remove zenoh router containers on one VM target.
+    target_mode: single
+    required_parameters: []
+
+  - type: cleanup_containers
+    scope: vm
+    description: Stop and remove one or more containers on one VM target.
+    target_mode: single
+    required_parameters: []
+
+  - type: collect_metrics
+    scope: vm
+    description: Collect metrics from one VM target.
+    target_mode: single
+    required_parameters: []

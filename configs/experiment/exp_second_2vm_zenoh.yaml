@@ -1,0 +1,28 @@
+kind: ExperimentPlan
+metadata:
+  name: exp_sec_2vm
+  description: >
+    Single-run experiment generated from the two-VM Zenoh scenario.
+    No parameter sweep or variation is applied in this first validation run.
+  scenarioRef: cross-site-zenoh-vm
+spec:
+  execution:
+    stopOnFailure: true
+    connectivityPrecheck: true
+
+  selections:
+    runtimeEnv: zenoh-unit8-vm
+    icopa_sender:payload_size: ['32KB', '16KB']
+    icopa_sender:frequency_hz: [30, 60]
+
+  phases:
+    # - name: setup_stress_workload
+    #   useTemplate: setup_stress_workload
+    # - name: setup_routing_to_cloud
+    #   useTemplate: setup_routing_to_cloud
+    - name: profiling
+      useTemplate: profiling
+    - name: collect_metrics
+      useTemplate: collect_metrics
+    - name: cleanup_profiling
+      useTemplate: cleanup_profiling

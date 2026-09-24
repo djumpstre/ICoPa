@@ -1,0 +1,151 @@
+kind: RuntimeEnvironment
+metadata:
+  name: zenoh-unit8-vm
+  description: VM-based cross-site Zenoh setup with explicit routing and testing groups.
+  tags:
+    ros2:
+      distro: jazzy
+      rmw: rmw_zenoh_cpp
+    zenoh:
+      enabled: true
+      routerPort: 7447
+spec:
+  images:
+    runnerImage: "" # Required: set your container image reference before use.
+
+  parameters:
+    cloud_router_ep: "tcp/<CLOUD_VM_PUBLIC_IP>:7447"
+    local_router_ep: "tcp/127.0.0.1:7447"
+    cloud_local_router_ep: "tcp/127.0.0.1:9099"
+    # Default fallback; generated experiment runs override this with a run-specific path.
+    rrt_config_file_path: "configs/runtime_env/serializer_rrt_config.yaml"
+
+  # Runtime command library.
+  # Orchestration order is NOT defined here; scenario phases define order.
+  commandGroups:
+    routing:
+      - name: cloud_router
+        executor: ssh
+        command: |
+          docker rm -f zenoh-router || true
+          docker run -d --name zenoh-router --network host -e RUST_LOG=debug \
+            "${runner_image}" /bin/bash -lc '
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+
+          cat > /tmp/zenoh_router.json <<EOF
+          {
+            "mode": "router",
+            "listen": {
+              "endpoints": ["tcp/0.0.0.0:7447", "tcp/0.0.0.0:9099"]
+            }
+          }
+          EOF
+
+          export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+          exec ros2 run rmw_zenoh_cpp rmw_zenohd
+          '
+
+      - name: local_router
+        executor: ssh
+        command: |
+          docker rm -f zenoh-router || true
+          docker run -d --name zenoh-router --network host -e RUST_LOG=debug \
+            "${runner_image}" /bin/bash -lc '
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+
+          cat > /tmp/zenoh_router.json <<EOF
+          {
+            "mode": "router",
+            "listen": {
+              "endpoints": ["tcp/0.0.0.0:7447"]
+            },
+            "connect": {
+              "endpoints": ["'"${cloud_router_ep}"'"]
+            }
+          }
+          EOF
+
+          export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+          exec ros2 run rmw_zenoh_cpp rmw_zenohd
+          '
+
+    profiling:
+      - name: latency_responder
+        executor: auto
+        parameters:
+          icopa_metrics_dir: "/tmp/icopa/default-metrics"
+          validate_metrics_dir: "/tmp/icopa/default-metrics"
+          validate_metrics_path: "/tmp/icopa/default-metrics"
+          rrt_config_file_path: "/workspace/config/rrt_config.yaml"
+
+        command: |
+          host_validate_dir="${icopa_metrics_dir}"
+          mkdir -p "$host_validate_dir"
+          host_rrt_config_file="$host_validate_dir/rrt_config.yaml"
+          if [[ -n "${rrt_config_yaml_b64}" ]]; then
+            printf '%s' "${rrt_config_yaml_b64}" | base64 -d > "$host_rrt_config_file"
+          else
+            : > "$host_rrt_config_file"
+          fi
+          echo "ICOPA_VALIDATE_DIR=$host_validate_dir"
+          docker run --rm --network host \
+            -v "$host_validate_dir:/tmp" \
+            -v "$host_rrt_config_file:${rrt_config_file_path}:ro" \
+            "${runner_image}" /bin/bash -lc '
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          if [[ ! -f /workspace/install/setup.bash ]]; then
+            cd /workspace
+            colcon build --symlink-install
+          fi
+
+          source /workspace/install/setup.bash
+          export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+          exec ros2 launch serialization_pub_sub responder.launch.py
+          '
+
+      - name: latency_sender
+        executor: auto
+        parameters:
+          icopa_metrics_dir: "/tmp/icopa/default-metrics"
+          validate_metrics_dir: "/tmp/icopa/default-metrics"
+          validate_metrics_path: "/tmp/icopa/default-metrics"
+          rrt_config_file_path: "/workspace/config/rrt_config.yaml"
+        command: |
+          host_validate_dir="${icopa_metrics_dir}"
+          mkdir -p "$host_validate_dir"
+          host_rrt_config_file="$host_validate_dir/rrt_config.yaml"
+          if [[ -n "${rrt_config_yaml_b64}" ]]; then
+            printf '%s' "${rrt_config_yaml_b64}" | base64 -d > "$host_rrt_config_file"
+          else
+            : > "$host_rrt_config_file"
+          fi
+          echo "ICOPA_VALIDATE_DIR=$host_validate_dir"
+          docker run --rm --network host \
+            -v "$host_validate_dir:/tmp" \
+            -v "$host_rrt_config_file:${rrt_config_file_path}:ro" \
+            "${runner_image}" /bin/bash -lc '
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+          if [[ ! -f /workspace/install/setup.bash ]]; then
+            cd /workspace
+            colcon build --symlink-install
+          fi
+
+          source /workspace/install/setup.bash
+          export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+          exec ros2 launch serialization_pub_sub pub.launch.py
+          '
+
+  artifacts:
+    remoteWorkDir: "/tmp/icopa"
+    collectGlobs:
+      - "/tmp/icopa/**/*.json"
+      - "/tmp/icopa/**/*.csv"
+      - "/tmp/icopa/**/*.log"

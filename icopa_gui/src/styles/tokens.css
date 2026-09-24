@@ -1,0 +1,14 @@
+:root {
+  --bg-app: radial-gradient(circle at top left, #11272f 0%, #0c161f 40%, #090f15 100%);
+  --bg-panel: rgba(11, 24, 33, 0.84);
+  --bg-panel-alt: rgba(20, 38, 50, 0.9);
+  --text-main: #e9f2f6;
+  --text-muted: #9bb6c5;
+  --accent: #12c2a8;
+  --accent-soft: #0f9f8a;
+  --warn: #f3b562;
+  --danger: #ef6f6c;
+  --border: rgba(155, 182, 197, 0.25);
+  --shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  --radius: 14px;
+}

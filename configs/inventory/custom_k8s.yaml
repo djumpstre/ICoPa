@@ -1,0 +1,44 @@
+# Customized K8s inventory for ICoPa experiments
+# Contains the K8s cluster API server address and access credentials
+# and the to be tested nodes information
+
+kubernetes:
+  - name: edge-k8s
+    labels:
+      site: lab
+      type: k3s
+    kubeconfig: "~/.kube/edge-k3s.yaml"
+    namespace: "netanalyzer"
+    serviceAccount:
+      name: "netanalyzer-runner"
+      # Option A: reference an existing SA + token secret name
+      tokenSecretRef: "netanalyzer-runner-token"
+    rbac:
+      # your controller can validate these at startup
+      requiredVerbs:
+        - get
+        - list
+        - watch
+        - create
+        - delete
+      requiredResources:
+        - pods
+        - services
+        - endpoints
+        - configmaps
+        - jobs
+        - deployments
+
+  - name: cloud-k8s
+    labels:
+      provider: gcp
+      type: gke
+    kubeconfig: "~/.kube/gke-prod.yaml"
+    namespace: "netanalyzer"
+    serviceAccount:
+      name: "netanalyzer-runner"
+      tokenSecretRef: "netanalyzer-runner-token"
+    rbac:
+      requiredVerbs: [get, list, watch, create, delete]
+      requiredResources: [pods, services, endpoints, configmaps, jobs, deployments]
+      

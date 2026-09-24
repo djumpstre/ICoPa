@@ -1,0 +1,59 @@
+kind: VMProvisioning
+metadata:
+  name: azure_vm_provisioning
+  description: Provisioning configuration for Azure VM used in the two-VM Zenoh experiment.
+  cloud_provider: azure
+  group_name: cloud-group-a
+vms:
+  - name: icopa-ros2-vm
+    region: germanywestcentral
+    location: germanywestcentral
+    subscription_id: xxx
+    resource_group: icopa-rg
+    size: Standard_A1_v2
+    admin_username: icopa
+    ssh_private_key_name_in_icopa: key_name_in_icopa
+    ssh_public_key_path: path_to_public_key
+    network:
+      use_existing_vnet: true
+      vnet_name: icopa-net
+      subnet_name: default
+      create_public_ip: true
+      enable_public_ssh: true
+      reuse_public_ip: true
+      reuse_nsg: true
+      nsg_name: icopa-ros2-vm-nsg
+      public_ip_name: icopa-ros2-vm-pip
+      nic_name: icopa-ros2-vm-nic
+      # address_prefix: 10.50.0.0/16
+      # subnet_prefix: 10.50.1.0/24
+    image:
+      publisher: canonical
+      offer: ubuntu-24_04-lts
+      sku: server-gen1
+      # version: latest
+    post_setup:
+      install_docker: true
+
+    spot:
+      enabled: true
+      eviction_policy: Deallocate
+      max_price: -1
+
+    storage:
+      os_disk_delete_option: Delete
+      data_disk_delete_option: Delete
+
+    icopa_config:
+      networking:
+        public: true
+        openPorts:
+          - { proto: tcp, port: 22,   purpose: ssh }
+          - { proto: tcp, port: 9328, purpose: zenoh-router }
+          - { proto: udp, port: 7400, purpose: fast-dds-router }
+
+
+    # container:
+    #   name: ros2-runtime
+    #   image: your-registry/your-ros2-image:latest
+    #   run_args: --network host --restart unless-stopped

@@ -1,0 +1,55 @@
+# This is just an example scenario file for ICoPa experiments
+
+scenario_id: ros2_pubsub_image_30hz_reliable
+transport: ros2
+
+topic:
+  name: /camera/image_raw
+  msg_type: sensor_msgs/msg/Image
+  payload:
+    mode: image
+    width: 1280
+    height: 720
+    encoding: rgb8
+
+publisher:
+  rate_hz: 30
+  burst:
+    enabled: false
+  warmup_s: 5
+  duration_s: 60
+
+subscriber:
+  latency_mode: round_trip   # round_trip doesn't require PTP
+  record_every_n: 1
+
+qos:
+  reliability: reliable
+  durability: volatile
+  history: keep_last
+  depth: 10
+
+topology:
+  pattern: 1pub-1sub
+  placement:
+    pub_target: hostA
+    sub_target: hostB
+
+stress:
+  cpu:
+    enabled: true
+    load_percent: 80
+    workers: 4
+
+
+test_period_s: 60
+
+vm_types:
+  hostA:
+    cpu: 4
+    ram_gb: 8
+    disk_gb: 50
+  hostB:
+    cpu: 4
+    ram_gb: 8
+    disk_gb: 50

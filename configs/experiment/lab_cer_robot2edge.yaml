@@ -1,0 +1,50 @@
+kind: ExperimentPlan
+metadata:
+  name: exp_plan_lab_3nodes_zenoh
+  description: >
+    Edge-scoped experiment generated from the 3-node lab scenario.
+    Each selected edge becomes one generated run per variant.
+  scenarioRef: lab-cloud-edge-jetson
+spec:
+  execution:
+    stopOnFailure: true
+    connectivityPrecheck: true
+
+  exploration:
+    axes:
+      cloud_cpu_cores: [2]
+      cloud_mem_gb: [1]
+
+  selections:
+    runtimeEnv: zenoh-unit8-vm
+
+  execEdge:
+    - edgeRefs: [edge_to_cloud, robot_to_edge]
+      phases:
+        - name: setup_routing
+          useTemplate: setup_routing
+        - name: profiling
+          useTemplate: profiling
+        - name: collect_metrics
+          useTemplate: collect_metrics
+        - name: cleanup_profiling
+          useTemplate: cleanup_profiling
+        - name: cleanup_router
+          useTemplate: cleanup_router
+
+    - edgeRefs: [robot_to_cloud]
+      phases:
+        - name: setup_stress_workload
+          useTemplate: setup_stress_workload
+        - name: setup_routing
+          useTemplate: setup_routing
+        - name: profiling
+          useTemplate: profiling
+        - name: collect_metrics
+          useTemplate: collect_metrics
+        - name: cleanup_profiling
+          useTemplate: cleanup_profiling
+        - name: cleanup_router
+          useTemplate: cleanup_router
+        - name: cleanup_stress_workload
+          useTemplate: cleanup_stress_workload

@@ -1,0 +1,118 @@
+presets:
+  - id: zenoh_router:jazzy_v1
+    name: zenoh_router_jazzy_v1
+    description: Preset to start a zenoh router container using the jazzy ROS2 image.
+    image: "" # Required: set your container image reference before use.
+
+    parameters:
+      cloud_router_ep: ["tcp/<CLOUD_VM_PUBLIC_IP>:9099"]
+      cloud_router_listen_ep: ["tcp/0.0.0.0:7447", "tcp/0.0.0.0:9099"]
+      local_router_listen_ep: ["tcp/127.0.0.1:7447"]
+      rust_log_level: debug # info
+    
+    commands:
+      - type: vm_ce_router_exec_cmd
+        description: Start cloud-side zenoh router container.
+        command: |
+          docker run -d --name zenoh-router --network host -e RUST_LOG=${rust_log_level} \
+            "${runner_image}" /bin/bash -lc '
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+
+          cat > /tmp/zenoh_router.json <<EOF
+          {
+            "mode": "router",
+            "listen": {
+              "endpoints": ${cloud_router_listen_ep}
+            }
+          }
+          EOF
+
+          export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+          exec ros2 run rmw_zenoh_cpp rmw_zenohd
+          '
+
+      - type: vm_local_router_exec_cmd
+        description: Start local-side zenoh router container.
+        command: |
+          docker run -d --name zenoh-router --network host -e RUST_LOG=debug \
+            "${runner_image}" /bin/bash -lc '
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+
+          cat > /tmp/zenoh_router.json <<EOF
+          {
+            "mode": "router",
+            "listen": {
+              "endpoints": ${local_router_listen_ep}
+            },
+            "connect": {
+              "endpoints": ["'"${cloud_router_ep}"'"]
+            }
+          }
+          EOF
+
+          export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+          exec ros2 run rmw_zenoh_cpp rmw_zenohd
+          '
+
+  - id: zenoh_router:jazzy_tls_v1
+    name: zenoh_router_jazzy_tls_v1
+    description: Preset to start a zenoh router container using the jazzy ROS2 image with TLS.
+    image: "" # Required: set your container image reference before use.
+
+    parameters:
+      cloud_router_ep: ["tls/<CLOUD_VM_PUBLIC_IP>:9099"]
+      cloud_router_listen_ep: ["tcp/0.0.0.0:7447", "tcp/0.0.0.0:9099"]
+      local_router_listen_ep: ["tcp/127.0.0.1:7447"]
+      rust_log_level: debug # info
+    
+    commands:
+      - type: vm_ce_router_exec_cmd
+        description: Start cloud-side zenoh router container.
+        command: |
+          docker run -d --name zenoh-router --network host -e RUST_LOG=${rust_log_level} \
+            "${runner_image}" /bin/bash -lc '
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+
+          cat > /tmp/zenoh_router.json <<EOF
+          {
+            "mode": "router",
+            "listen": {
+              "endpoints": ${cloud_router_listen_ep}
+            }
+          }
+          EOF
+
+          export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+          exec ros2 run rmw_zenoh_cpp rmw_zenohd
+          '
+
+      - type: vm_local_router_exec_cmd
+        description: Start local-side zenoh router container.
+        command: |
+          docker run -d --name zenoh-router --network host -e RUST_LOG=debug \
+            "${runner_image}" /bin/bash -lc '
+          set -eo pipefail
+          set +u
+          source /opt/ros/jazzy/setup.bash
+
+          cat > /tmp/zenoh_router.json <<EOF
+          {
+            "mode": "router",
+            "listen": {
+              "endpoints": ${local_router_listen_ep}
+            },
+            "connect": {
+              "endpoints": ["'"${cloud_router_ep}"'"]
+            }
+          }
+          EOF
+
+          export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+          exec ros2 run rmw_zenoh_cpp rmw_zenohd
+          '

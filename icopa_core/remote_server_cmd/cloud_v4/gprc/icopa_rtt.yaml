@@ -1,0 +1,37 @@
+# icopa_rtt.yaml – gRPC RTT benchmark configuration (ROS2-free)
+
+icopa_sender:
+  ros__parameters:
+    # gRPC endpoint
+    target: 127.0.0.1:50051
+    method: /icopa.bench.RttService/Ping
+
+    # Traffic
+    payload_size: 64KB
+    frequency_hz: 30
+
+    # Measurement window
+    skip_first_seconds: 2
+    json_duration_sec: 60
+    drain_seconds: 2
+
+    # Output folder structure: <output_root>/<experiment_name>/rrt_summary.json
+    # and optionally <output_root>/<experiment_name>/rrt_all.csv
+    output_root: /tmp/grpc_rtt
+    experiment_name: exp_default
+    record_all_latencies: true
+
+    # Runtime safeguards
+    rpc_timeout_sec: 5.0
+    max_in_flight: 0
+
+icopa_responder:
+  ros__parameters:
+    bind: 0.0.0.0:50051
+    method: /icopa.bench.RttService/Ping
+    response_payload_size: 24KB
+
+    # Optional server behavior
+    workers: 8
+    cpu_load_cores: 0
+    impulse_duration_ms: 0.0

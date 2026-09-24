@@ -1,0 +1,197 @@
+kind: Scenario
+metadata:
+  name: ltc-zenoh-serializer-multi-cloud
+  description: >
+    One Jetson Orin Nano, One Edge with A4500 and a CPU VM in the cloud.
+
+spec:
+  nodes:
+    - name: vm_lab_edge
+      kind: vm
+      profiling_role: ['sender', 'responder']
+      labels: { site: edge }
+    - name: jetson_robot_01
+      kind: vm
+      profiling_role: ['sender']
+      labels: { site: robot }
+    # Germany Central
+    - name: az-iros-gc-d8alds-v7
+      kind: vm
+      profiling_role: responder
+      labels: { site: cloud }
+    # North Europe
+    - name: az-iros-north-eu-d8alds-v7
+      kind: vm
+      profiling_role: responder
+      labels: { site: cloud }
+    # UK South
+    - name: az-iros-uk-south-d8alds-v7
+      kind: vm
+      profiling_role: responder
+      labels: { site: cloud }
+    # West Europe
+    - name: az-iros-west-eu-d8alds-v7
+      kind: vm
+      profiling_role: responder
+      labels: { site: cloud }
+    # Additional cloud VMs can be added here following the same pattern.
+    - name: az-iros-gc-d2as-v4
+      kind: vm
+      profiling_role: responder
+      labels: { site: cloud }
+    - name: az-iros-gc-d2alds-v7
+      kind: vm
+      profiling_role: responder
+      labels: { site: cloud }
+
+
+  graph:
+    # directed edges in the compute topology
+    edges:
+      - name: edge_to_az_gc
+        from: vm_lab_edge
+        to: az-iros-gc-d8alds-v7
+        link: ["wan"]
+        type: edge2cloud # edge2cloud or robot2edge
+
+      - name: edge_to_az_gc_d2as_v4
+        from: vm_lab_edge
+        to: az-iros-gc-d2as-v4
+        link: ["wan"]
+        type: edge2cloud # edge2cloud or robot2edge
+
+      - name: edge_to_az_gc_d2alds_v7
+        from: vm_lab_edge
+        to: az-iros-gc-d2alds-v7
+        link: ["wan"]
+        type: edge2cloud # edge2cloud or robot2edge
+
+      - name: edge_to_az_north_eu
+        from: vm_lab_edge
+        to: az-iros-north-eu-d8alds-v7
+        link: ["wan"]
+        type: edge2cloud # edge2cloud or robot2edge
+
+      - name: edge_to_az_uk_south
+        from: vm_lab_edge
+        to: az-iros-uk-south-d8alds-v7
+        link: ["wan"]
+        type: edge2cloud # edge2cloud or robot2edge
+      
+      - name: edge_to_az_west_eu
+        from: vm_lab_edge
+        to: az-iros-west-eu-d8alds-v7
+        link: ["wan"]
+        type: edge2cloud # edge2cloud or robot2edge
+
+      - name: robot_to_edge
+        from: jetson_robot_01
+        to: vm_lab_edge
+        link: ["wifi"]
+        type: robot2edge # edge2cloud or robot2edge
+
+  runtimeEnvRef: sc-zenoh-serializer-unit8
+
+  phaseTemplates:
+    - name: setup_stress_workload
+      mode: parallel
+      description: Start CPU+RAM stress workload on edge.from (sender) and edge.to (responder).
+      actions:
+        - type: run_runtime_preset
+          targetRef: vm:${edge.to}
+          preset: stress/stress_cpu_ram
+          parameters:
+            cpu_cores: ${variant.responder_cpu_cores}
+            mem_gb: ${variant.responder_mem_gb}
+        - type: run_runtime_preset
+          targetRef: vm:${edge.from}
+          preset: stress/stress_cpu_ram
+          parameters:
+            cpu_cores: ${variant.sender_cpu_cores}
+            mem_gb: ${variant.sender_mem_gb}
+  
+    - name: setup_routing
+      mode: sequential
+      description: Start router pair in strict order for one selected edge.
+      actions:
+        - type: run_runtime_preset
+          targetRef: vm:${edge.to}
+          preset: routing/setup_zenoh_routing
+          parameters:
+            preset_container_id: zenoh_router:jazzy_v1
+            exec_cmd_type: vm_ce_router_exec_cmd
+        - type: wait
+          parameters:
+            seconds: 3
+        - type: run_runtime_preset
+          targetRef: vm:${edge.from}
+          preset: routing/setup_zenoh_routing/jazzy_v1
+          parameters:
+            preset_container_id: zenoh_router:jazzy_v1
+            exec_cmd_type: vm_local_router_exec_cmd
+            peer_node: ${edge.to}
+
+    - name: profiling
+      mode: sequential
+      description: Start responder then sender for one selected edge.
+      actions:
+        - type: run_runtime_preset
+          preset: profiling/latency_responder
+          targetRef: vm:${edge.to}
+        - type: wait
+          parameters:
+            seconds: 3
+        - type: run_runtime_preset
+          preset: profiling/latency_sender
+          targetRef: vm:${edge.from}
+          parameters:
+            peer_node: ${edge.to}
+
+    - name: cleanup_profiling
+      mode: parallel
+      description: Stop responder and sender after profiling on one selected edge.
+      actions:
+        - type: run_runtime_preset
+          preset: profiling/latency_responder
+          targetRef: vm:${edge.to}
+          parameters:
+            cleanup_only: true
+        - type: run_runtime_preset
+          preset: profiling/latency_sender
+          targetRef: vm:${edge.from}
+          parameters:
+            cleanup_only: true
+
+    - name: cleanup_router
+      mode: sequential
+      description: Stop and remove zenoh router containers on one selected edge.
+      actions:
+        - type: cleanup_zenoh_routers
+          targetRef: vm:${edge.to}
+        - type: wait
+          parameters:
+            seconds: 1
+        - type: cleanup_zenoh_routers
+          targetRef: vm:${edge.from}
+
+    - name: collect_metrics
+      mode: sequential
+      actions:
+        - type: collect_metrics
+          targetRef: vm:${edge.from}
+
+    - name: cleanup_stress_workload
+      mode: sequential
+      description: Stop stress workload container on cloud VM.
+      actions:
+        - type: run_runtime_preset
+          preset: stress/stress_cpu_ram
+          targetRef: vm:cloud_vm_bw
+          parameters:
+            cleanup_only: true
+        - type: run_runtime_preset
+          preset: stress/stress_cpu_ram
+          targetRef: vm:vm_home_edge
+          parameters:
+            cleanup_only: true
+          

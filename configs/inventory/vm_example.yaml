@@ -1,0 +1,46 @@
+# Minimal VM inventory for first-step usability:
+# 1) Fill in the two VM addresses.
+# 2) Ensure passwordless SSH works with the same key.
+# 3) Upload this YAML to the inventory API.
+#
+# Only fields below are required by current backend:
+# - hosts[].name, hosts[].address
+# - hosts[].credential.ssh_key_name (if using SSH key auth)
+# - ssh_key[].name, ssh_key[].key_path
+
+kind: InventoryVirtualMachine
+metadata:
+  group_name: vm_example
+  description: Example inventory for a two-VM Zenoh setup. Fill in the VM details and upload to the inventory API.
+spec:
+  hosts:
+    - name: cloud_vm
+      address: xxx.xxx.xxx.xxx
+      username: ubuntu
+      port: 22
+      credential:
+        ssh_key_name: vm_access_key
+      metadata:
+        site: cloud
+        role: cloud_router,responder
+
+      networking:
+        public: true
+        openPorts:
+          - { proto: tcp, port: 22,   purpose: ssh }
+          - { proto: tcp, port: xxx, purpose: zenoh-router }
+          - { proto: udp, port: xxx, purpose: fast-dds-router }
+
+    - name: vm_home
+      address: xxx.xxx.xxx.xxx
+      username: ubuntu
+      port: 22
+      credential:
+        ssh_key_name: vm_access_key
+      metadata:
+        site: local
+        role: local_router,sender
+
+  ssh_key:
+    - name: vm_access_key
+      key_path: path/to/your/private/key.pem

@@ -1,0 +1,56 @@
+kind: ExperimentPlan
+metadata:
+  name: home_edge_to_bw_stress_0c
+  description: >
+    Stress test with sender/responder stress profiles on selected edge endpoints.
+  scenarioRef: home-3cer
+spec:
+  execution:
+    stopOnFailure: true
+    connectivityPrecheck: true
+
+  selections:
+    runtimeEnv: zenoh-unit8-vm
+
+  execEdge:
+    - edgeRefs: [edge_to_cloud]
+      exploration:
+        sender_cpu_cores: [0]
+        sender_mem_gb: [1]
+        responder_cpu_cores: [0]
+        responder_mem_gb: [1]
+        icopa_sender:payload_size: ['64KB', '96KB']
+        icopa_sender:frequency_hz: [60]
+        icopa_sender:json_duration_sec: [30]
+      phases:
+        - name: setup_stress_workload
+          useTemplate: setup_stress_workload
+        # - name: setup_routing
+        #   useTemplate: setup_routing
+        - name: profiling
+          useTemplate: profiling
+        - name: collect_metrics
+          useTemplate: collect_metrics
+        - name: cleanup_profiling
+          useTemplate: cleanup_profiling
+        - name: cleanup_stress_workload
+          useTemplate: cleanup_stress_workload
+        # - name: cleanup_router
+        #   useTemplate: cleanup_router
+
+    # - edgeRefs: [robot_to_cloud]
+    #   phases:
+    #     - name: setup_stress_workload
+    #       useTemplate: setup_stress_workload
+    #     - name: setup_routing
+    #       useTemplate: setup_routing
+    #     - name: profiling
+    #       useTemplate: profiling
+    #     - name: collect_metrics
+    #       useTemplate: collect_metrics
+    #     - name: cleanup_profiling
+    #       useTemplate: cleanup_profiling
+    #     - name: cleanup_router
+    #       useTemplate: cleanup_router
+    #     - name: cleanup_stress_workload
+    #       useTemplate: cleanup_stress_workload

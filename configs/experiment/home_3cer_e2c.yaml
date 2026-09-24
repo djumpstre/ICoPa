@@ -1,0 +1,50 @@
+kind: ExperimentPlan
+metadata:
+  name: exp_home_3cer_e2c
+  description: >
+    Edge-scoped experiment generated from the 3-node lab scenario.
+    Each selected edge becomes one generated run per variant.
+  scenarioRef: home-3cer
+spec:
+  execution:
+    stopOnFailure: true
+    connectivityPrecheck: true
+
+  selections:
+    runtimeEnv: zenoh-unit8-vm
+
+  execEdge:
+    - edgeRefs: [edge_to_cloud]
+      exploration:
+        cloud_cpu_cores: [2]
+        cloud_mem_gb: [1]
+        icopa_sender:payload_size: ['32KB', '16KB']
+        icopa_sender:frequency_hz: [30, 60]
+      phases:
+        # - name: setup_routing
+        #   useTemplate: setup_routing
+        - name: profiling
+          useTemplate: profiling
+        - name: collect_metrics
+          useTemplate: collect_metrics
+        - name: cleanup_profiling
+          useTemplate: cleanup_profiling
+        # - name: cleanup_router
+        #   useTemplate: cleanup_router
+
+    # - edgeRefs: [robot_to_cloud]
+    #   phases:
+    #     - name: setup_stress_workload
+    #       useTemplate: setup_stress_workload
+    #     - name: setup_routing
+    #       useTemplate: setup_routing
+    #     - name: profiling
+    #       useTemplate: profiling
+    #     - name: collect_metrics
+    #       useTemplate: collect_metrics
+    #     - name: cleanup_profiling
+    #       useTemplate: cleanup_profiling
+    #     - name: cleanup_router
+    #       useTemplate: cleanup_router
+    #     - name: cleanup_stress_workload
+    #       useTemplate: cleanup_stress_workload

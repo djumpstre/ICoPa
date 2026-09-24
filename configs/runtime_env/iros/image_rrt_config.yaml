@@ -1,0 +1,111 @@
+##############################################################################
+# icopa_rtt.yaml — Single config for all three benchmark modes
+#
+# Usage (split across two machines):
+#   Responder machine:
+#     ros2 launch image_pub_sub benchmark_responder.launch.py mode:=raw
+#     ros2 launch image_pub_sub benchmark_responder.launch.py mode:=jpeg
+#     ros2 launch image_pub_sub benchmark_responder.launch.py mode:=h264
+#
+#   Sender machine:
+#     ros2 launch image_pub_sub benchmark_sender.launch.py mode:=raw
+#     ros2 launch image_pub_sub benchmark_sender.launch.py mode:=jpeg
+#     ros2 launch image_pub_sub benchmark_sender.launch.py mode:=h264
+#
+# Mode scope:
+#   raw  — sensor_msgs/Image, no compression. RTT = network only.
+#   jpeg — sensor_msgs/CompressedImage, JPEG via cv2.imencode.
+#          RTT = jpeg encode + network. No decode on responder.
+#   h264 — UInt8MultiArray, H.264 via persistent ffmpeg subprocess.
+#          RTT = h264 encode + network + h264 decode (decode_frames: true).
+##############################################################################
+
+icopa_image_sender:
+  ros__parameters:
+    # ---- QoS ----
+    reliability: reliable
+    history: keep_last
+    depth: 1
+    durability: volatile
+
+    # ---- Topics ----
+    send_path: send_path
+    responder_path: responder_path
+
+    # ---- Image shape ----
+    request_width: 1280
+    request_height: 720
+
+    # [raw only] raw encoding: rgb8 or mono8
+    request_encoding: rgb8
+
+    # ---- Timing ----
+    frequency_hz: 30
+    # Wait for first reply before opening measurement window (recommended for
+    # wifi/cloud where connection setup time is variable).
+    start_after_first_reply: true
+    # Additional warm-up seconds after first reply before counting samples.
+    skip_first_seconds: 2
+    # Duration of the measurement window.
+    json_duration_sec: 10
+    # Extra seconds to wait for in-flight replies before finalizing.
+    drain_seconds: 2.0
+
+    # ---- Output ----
+    # Default paths — overridden by the launch file per mode, or via CLI:
+    #   ros2 launch ... json_path:=/my/dir/result.json latencies_path:=/my/dir/result.csv
+    # The launch file defaults to /tmp/rtt_<mode>.json / /tmp/rtt_<mode>.csv.
+    json_path: /tmp/rtt_summary.json
+    latencies_path: /tmp/rtt_all.csv
+    stop_after_write: true
+    record_all_latencies: true
+    print_msg_size: true
+    debug_trace_ids: false
+
+    # ---- [jpeg mode] JPEG compression quality ----
+    # 0 = worst quality (smallest), 100 = best quality (largest).
+    # Ignored in raw and h264 modes.
+    jpeg_quality: 95
+
+    # ---- [h264 mode] ffmpeg encoder settings ----
+    # ffmpeg_gpu: true  → h264_nvenc (NVIDIA GPU)
+    # ffmpeg_gpu: false → libx264  (CPU software)
+    # Ignored in raw and jpeg modes.
+    ffmpeg_gpu: true
+
+    # fallback bitrate when ffmpeg_crf is -1 (bits/s)
+    ffmpeg_bitrate: 4000000
+
+    # Quality-based rate control (overrides bitrate when 0–51):
+    #   -1 = disabled (use ffmpeg_bitrate)
+    #    0 = lossless, 18 = visually lossless, 23 = default, 51 = worst
+    # Works for both CPU (libx264 -crf) and GPU (h264_nvenc -rc constqp -qp).
+    ffmpeg_crf: 51
+
+
+icopa_image_responder:
+  ros__parameters:
+    # ---- QoS ----
+    reliability: reliable
+    history: keep_last
+    depth: 1
+    durability: volatile
+
+    # ---- Topics ----
+    send_path: send_path
+    responder_path: responder_path
+
+    # ---- Reply size ----
+    # 0 = 8-byte reply (msg_id only) — minimises reply-path load.
+    response_payload_size: 0
+    debug_trace_ids: false
+
+    # ---- [h264 mode] decoder settings ----
+    # ffmpeg_gpu: true  → h264 decoder + CUDA hwaccel (NVDEC)
+    # ffmpeg_gpu: false → h264 decoder (CPU software)
+    # Ignored in raw and jpeg modes.
+    ffmpeg_gpu: true
+
+    # decode_frames: true  → decode BEFORE replying (RTT includes decode time)
+    # decode_frames: false → reply immediately without decoding (network-only RTT)
+    decode_frames: true

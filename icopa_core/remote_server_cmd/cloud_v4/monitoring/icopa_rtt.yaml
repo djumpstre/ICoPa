@@ -1,0 +1,82 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# icopa_rtt.yaml  –  RTT benchmark configuration
+#
+# Timeline:
+#   t=0                        node start
+#   t=skip_first_seconds       measurement window opens (warm-up ends)
+#   t=skip_first_seconds
+#     + json_duration_sec      measurement window closes
+#   t=...+ drain_seconds       results written to disk, node optionally exits
+# ─────────────────────────────────────────────────────────────────────────────
+
+icopa_sender:
+  ros__parameters:
+
+    # ── QoS ─────────────────────────────────────────────────────────────────
+    # Must match the responder's QoS or the subscriber will not connect.
+    reliability: reliable   # best_effort | reliable
+    history: keep_last         # keep_last | keep_all
+    depth: 8                   # queue depth (keep_last only)
+    durability: volatile       # volatile | transient_local
+
+    # ── Topics ───────────────────────────────────────────────────────────────
+    # The sender publishes on send_path and subscribes on responder_path.
+    # The responder does the opposite – both sides must use the same values.
+    send_path: send_path
+    responder_path: responder_path
+
+    # ── Traffic ──────────────────────────────────────────────────────────────
+    # payload_size: size of each request message's data section.
+    #   Accepted formats: "16KB", "1024B", or a plain integer (treated as KB).
+    payload_size: 1KB
+
+    # frequency_hz: publish rate in Hz.
+    #   Set to 0 or a negative value for an unthrottled spin-loop TX thread.
+    frequency_hz: 30
+
+    # ── Measurement window ───────────────────────────────────────────────────
+    # skip_first_seconds: warm-up period; packets sent during this time are
+    #   discarded from statistics to let DDS discovery and kernel buffers settle.
+    skip_first_seconds: 2
+
+    # json_duration_sec: length of the active measurement window (seconds).
+    #   Total node runtime ≈ skip_first_seconds + json_duration_sec + drain_seconds.
+    json_duration_sec: 60
+
+    # drain_seconds: grace period after the window closes.
+    #   Gives in-flight replies time to arrive before results are written,
+    #   preventing false "packets_lost" entries. 2 s is sufficient for any
+    #   reasonable RTT; increase if you see non-zero pending_ids in the output.
+    drain_seconds: 2
+
+    # ── Output ───────────────────────────────────────────────────────────────
+    # json_path: destination file for the JSON summary.
+    json_path: /tmp/rrt_summary.json
+
+    # stop_after_write: set true to automatically shut down the sender node
+    #   once results have been written (useful in automated pipelines).
+    stop_after_write: true
+
+    # record_all_latencies: write every individual RTT sample (one value in
+    #   nanoseconds per line) to latencies_path for offline analysis.
+    record_all_latencies: true
+    latencies_path: /tmp/rrt_all.csv
+
+icopa_responder:
+  ros__parameters:
+
+    # ── QoS – must match sender ───────────────────────────────────────────────
+    reliability: best_effort
+    history: keep_last
+    depth: 8
+    durability: volatile
+
+    # ── Topics – must match sender ────────────────────────────────────────────
+    send_path: send_path
+    responder_path: responder_path
+
+    # ── Reply payload ─────────────────────────────────────────────────────────
+    # response_payload_size: size of each reply message's data section.
+    #   Can differ from the sender's payload_size to simulate asymmetric traffic
+    #   (e.g. small request, large response). Same format as payload_size.
+    response_payload_size: 24KB

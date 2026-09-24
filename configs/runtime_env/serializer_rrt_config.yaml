@@ -1,0 +1,32 @@
+icopa_sender:
+  ros__parameters:
+    reliability: best_effort
+    history: keep_last
+    depth: 8
+    durability: volatile
+
+    send_path: send_path
+    responder_path: responder_path
+
+    payload_size: 1024KB
+    frequency_hz: 30
+    skip_first_seconds: 5
+
+    json_duration_sec: 20
+    json_path: /tmp/rrt_summary.json
+    stop_after_write: true
+
+    record_all_latencies: true
+    latencies_path: /tmp/rrt_all.csv
+
+icopa_responder:
+  ros__parameters:
+    reliability: best_effort
+    history: keep_last
+    depth: 8
+    durability: volatile
+
+    send_path: send_path
+    responder_path: responder_path
+
+    response_payload_size: 256KB

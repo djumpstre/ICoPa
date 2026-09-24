@@ -1,0 +1,305 @@
+kind: RuntimeEnvironment
+metadata:
+  name: ros2-jazzy-zenoh
+  tags:
+    ros2:
+      distro: jazzy
+      rmw: rmw_zenoh_cpp
+    zenoh:
+      enabled: true
+      routerPort: 7447
+      configMountPath: "/etc/zenoh/router.json5"
+spec:
+  images:
+    # can be used by either docker-on-vm or k8s
+    runnerImage: "" # Required: set your container image reference before use.
+
+  parameters:
+    cloud_router_ep: "tcp/<CLOUD_VM_PUBLIC_IP>:7447"
+    local_router_ep: "tcp/127.0.0.1:7447"
+    cloud_local_router_ep: "tcp/127.0.0.1:7447"
+    pub_topic: "/chatter"
+    sub_topic: "/chatter_response"
+    pub_rate_hz: 100.0
+    pub_msg: "hello"
+    response_msg: "hello_response"
+    stats_interval_sec: 5.0
+
+  commandPresets:
+    # Keep presets simple: one command block per role.
+    # executor: "ssh" for VM nodes, "k8s" for k8s nodes, "auto" to let executor choose.
+    - name: cloud_router
+      executor: ssh
+      command: |
+        docker rm -f zenoh-router || true
+        docker run -d --name zenoh-router --network host \
+          "${runner_image}" /bin/bash -lc '
+        set -eo pipefail
+        set +u
+        source /opt/ros/jazzy/setup.bash
+
+        cat > /tmp/zenoh_router.json <<EOF
+        {
+          "mode": "router",
+          "listen": {
+            "endpoints": ["tcp/0.0.0.0:7447", "tcp/0.0.0.0:9099"]
+          }
+        }
+        EOF
+
+        export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+        exec ros2 run rmw_zenoh_cpp rmw_zenohd
+        '
+
+    - name: local_router
+      executor: ssh
+      command: |
+        docker rm -f zenoh-router || true
+        docker run -d --name zenoh-router --network host \
+          "${runner_image}" /bin/bash -lc '
+        set -eo pipefail
+        set +u
+        source /opt/ros/jazzy/setup.bash
+
+        cat > /tmp/zenoh_router.json <<EOF
+        {
+          "mode": "router",
+          "listen": {
+            "endpoints": ["tcp/0.0.0.0:7447"]
+          },
+          "connect": {
+            "endpoints": ["'"${cloud_router_ep}"'"]
+          }
+        }
+        EOF
+
+        export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+        exec ros2 run rmw_zenoh_cpp rmw_zenohd
+        '
+
+    - name: sender
+      executor: auto
+      command: |
+        docker run --rm --network host \
+          "${runner_image}" /bin/bash -lc '
+        set -eo pipefail
+        set +u
+        source /opt/ros/jazzy/setup.bash
+        if [[ ! -f /workspace/install/setup.bash ]]; then
+          cd /workspace
+          colcon build --symlink-install
+        fi
+        source /workspace/install/setup.bash
+
+        cat > /tmp/zenoh_client.json <<EOF
+        {
+          "mode": "client",
+          "connect": {
+            "endpoints": ["${local_router_ep}"]
+          }
+        }
+        EOF
+
+        export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+        export RMW_ZENOH_CONFIG=/tmp/zenoh_client.json
+        ros2 run icopa_jazzy icopa_jazzy_publisher --ros-args \
+          -p topic:=${pub_topic} \
+          -p response_topic:=${sub_topic} \
+          -p rate_hz:=${pub_rate_hz} \
+          -p data:=${pub_msg} \
+          -p stats_interval_sec:=${stats_interval_sec}
+        '
+
+    - name: responder
+      executor: auto
+      command: |
+        docker run --rm --network host \
+          "${runner_image}" /bin/bash -lc '
+        set -eo pipefail
+        set +u
+        source /opt/ros/jazzy/setup.bash
+        if [[ ! -f /workspace/install/setup.bash ]]; then
+          cd /workspace
+          colcon build --symlink-install
+        fi
+        source /workspace/install/setup.bash
+
+        cat > /tmp/zenoh_client.json <<EOF
+        {
+          "mode": "client",
+          "connect": {
+            "endpoints": ["${cloud_local_router_ep}"]
+          }
+        }
+        EOF
+
+        export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+        export RMW_ZENOH_CONFIG=/tmp/zenoh_client.json
+        ros2 run icopa_jazzy icopa_jazzy_subscriber --ros-args \
+          -p topic:=${pub_topic} \
+          -p response_topic:=${sub_topic}
+        '
+
+  # artifacts:
+  #   # where the runner should write results/logs on the target
+  #   remoteWorkDir: "/tmp/netanalyzer"
+  #   collectGlobs:
+  #     - "/tmp/netanalyzer/**/*.json"
+  #     - "/tmp/netanalyzer/**/*.csv"
+  #     - "/tmp/netanalyzer/**/*.log"
+
+
+###### EXAMPLE: Following are tested script on the VM directly (without k8s) Keep this in the file for reference
+### First: Cloud router on the Cloud VM with Public IP
+#!/usr/bin/env bash
+# set -euo pipefail
+# IMAGE_NAME="${IMAGE_NAME:?Set IMAGE_NAME to your container image reference}"
+# docker run --rm -it \
+# 	--network host \
+# 	"${IMAGE_NAME}" \
+# 	/bin/bash -lc '
+# set -eo pipefail
+# set +u
+# source /opt/ros/jazzy/setup.bash
+
+# cat > /tmp/zenoh_router.json <<EOF
+# {
+#   // Run as a router
+#   mode: "router",
+
+#   // Listen on all interfaces on the VM
+#   listen: {
+#     endpoints: [
+#       "tcp/0.0.0.0:9099",
+#       "tcp/0.0.0.0:7447"
+#     ]
+#   },
+
+# //  For WAN: disable multicast scouting (not useful across the Internet)
+# //  scouting: {
+# //    multicast: { enabled: false },
+# //    gossip: { enabled: true }
+# //  }
+# }
+# EOF
+
+# # echo "Zenoh router listening on ${ROUTER_LISTEN_ENDPOINT}"
+# # echo "Clients should connect to tcp/<router_host>:${ROUTER_PORT}"
+
+# export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+
+# ros2 run rmw_zenoh_cpp rmw_zenohd
+# '
+
+### Second: Run the responder on the same Cloud VM, connecting to the cloud router
+#!/usr/bin/env bash
+# set -euo pipefail
+
+# IMAGE_NAME="${IMAGE_NAME:?Set IMAGE_NAME to your container image reference}"
+# ROUTER_ENDPOINT="${ROUTER_ENDPOINT:-tcp/127.0.0.1:7447}"
+
+# docker run --rm -it \
+# 	--network host \
+# 	-e ROUTER_ENDPOINT="${ROUTER_ENDPOINT}" \
+# 	"${IMAGE_NAME}" \
+# 	/bin/bash -lc '
+# set -eo pipefail
+# set +u
+# source /opt/ros/jazzy/setup.bash
+# if [[ ! -f /workspace/install/setup.bash ]]; then
+# 	cd /workspace
+# 	colcon build --symlink-install
+# fi
+# source /workspace/install/setup.bash
+# cat > /tmp/zenoh_client.json <<EOF
+# {
+#   "mode": "client",
+#   "connect": {
+#     "endpoints": ["'"${ROUTER_ENDPOINT}"'"]
+#   }
+# }
+# EOF
+# export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+# export RMW_ZENOH_CONFIG=/tmp/zenoh_client.json
+# ros2 run icopa_jazzy icopa_jazzy_subscriber --ros-args \
+# 	-p topic:=/chatter \
+# 	-p response_topic:=/chatter_response
+# '
+
+### Third: the local zenoh router on the local VM that connects to the cloud router
+#!/usr/bin/env bash
+# set -euo pipefail
+
+# IMAGE_NAME="${IMAGE_NAME:?Set IMAGE_NAME to your container image reference}"
+# # LISTEN_EP: JSON array of endpoints, e.g. '["tcp/0.0.0.0:7447", "tcp/0.0.0.0:9099"]'
+# LISTEN_EP="${LISTEN_EP:-[\"tcp/0.0.0.0:7447\"]}"
+
+# docker run --rm -it \
+#     --network host \
+#     -e RUST_LOG=debug \
+#     "${IMAGE_NAME}" \
+#     /bin/bash -lc '
+# set -eo pipefail
+# set +u
+# source /opt/ros/jazzy/setup.bash
+
+# cat > /tmp/zenoh_router.json <<EOF
+# {
+#   "mode": "router",
+#   "listen": {
+#     "endpoints": '"${LISTEN_EP}"'
+#   }
+# }
+# EOF
+
+# echo "=== Zenoh router config ==="
+# cat /tmp/zenoh_router.json
+# echo "==========================="
+
+# export ZENOH_ROUTER_CONFIG_URI=/tmp/zenoh_router.json
+
+# ros2 run rmw_zenoh_cpp rmw_zenohd
+# '
+
+### Fourth: Run the sender on the local VM, connecting to the local zenoh router, and test the latency
+#!/usr/bin/env bash
+# set -euo pipefail
+
+# IMAGE_NAME="${IMAGE_NAME:?Set IMAGE_NAME to your container image reference}"
+# ROUTER_ENDPOINT="${ROUTER_ENDPOINT:-tcp/127.0.0.1:7447}"
+
+# docker run --rm -it \
+# 	--network host \
+# 	-e ROUTER_ENDPOINT="${ROUTER_ENDPOINT}" \
+# 	"${IMAGE_NAME}" \
+# 	/bin/bash -lc '
+# set -eo pipefail
+# set +u
+# source /opt/ros/jazzy/setup.bash
+
+# if [[ ! -f /workspace/install/setup.bash ]]; then
+#   cd /workspace
+#   colcon build --symlink-install
+# fi
+
+# source /workspace/install/setup.bash
+
+# cat > /tmp/zenoh_client.json <<EOF
+# {
+#   "mode": "client",
+#   "connect": {
+#     "endpoints": ["'"${ROUTER_ENDPOINT}"'"]
+#   }
+# }
+# EOF
+
+# export RMW_IMPLEMENTATION=rmw_zenoh_cpp
+# export RMW_ZENOH_CONFIG=/tmp/zenoh_client.json
+
+# ros2 run icopa_jazzy icopa_jazzy_publisher --ros-args \
+#   -p topic:=/chatter \
+#   -p response_topic:=/chatter_response \
+#   -p rate_hz:=100.0 \
+#   -p data:=hello \
+#   -p stats_interval_sec:=5.0
+# '
